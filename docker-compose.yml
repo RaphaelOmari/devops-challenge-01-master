@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password  # Root password from Docker secret
+      MYSQL_DATABASE: releases_db                                  # Default database for app
+      MYSQL_USER: app_user                                          # Limited MySQL user
+      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password              # Limited user password from Docker secret
+    secrets:
+      - mysql_root_password
+      - mysql_password
+    ports:
+      - "3306:3306"  # Expose MySQL port for local connection
+    volumes:
+      - ./mysql:/docker-entrypoint-initdb.d  # Mounting the sql files to initialize the database
+    networks:
+      - app-network
+
+  app:
+    build: .
+    container_name: node_app
+    environment:
+      DB_HOST: db                                         # MySQL service hostname (internal network)
+      DB_USER: app_user                                   # MySQL limited user
+      DB_PASSWORD_FILE: /run/secrets/mysql_password        # MySQL password from Docker secret
+      DB_DATABASE: releases_db                            # Target database
+      API_KEY: ${API_KEY}                                 # API Key for authentication (store in .env)
+    secrets:
+      - mysql_password
+    ports:
+      - "3000:3000"  # Expose Node.js app port
+    depends_on:
+      - db  # Wait for MySQL service to be up
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge  # Create an isolated network for communication between services
+
+secrets:
+  mysql_root_password:
+    file: ./secrets/mysql_root_password.txt  # Root password stored in secret file
+  mysql_password:
+    file: ./secrets/mysql_password.txt       # Limited user password stored in secret file
