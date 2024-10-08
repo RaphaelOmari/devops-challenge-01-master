@@ -14,22 +14,41 @@ const port = 3000;
 // Middleware to parse JSON bodies
 app.use(bodyParser.json());
 
-// MySQL database connection
-const db = mysql.createConnection({
+// MySQL database connection with retry logic
+const dbConfig = {
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_DATABASE
-});
+    database: process.env.DB_DATABASE,
+    port: process.env.DB_PORT || 3306,
+};
 
-// Connect to the database
-db.connect((err) => {
-    if (err) {
-        console.error('Error connecting to the database:', err);
-        return;
-    }
-    console.log('Connected to the MySQL database.');
-});
+const maxRetries = 10; // Max retry attempts
+let attempts = 0;
+
+const connectWithRetry = () => {
+    const db = mysql.createConnection(dbConfig);
+
+    db.connect((err) => {
+        if (err) {
+            attempts++;
+            console.error(`Attempt ${attempts} failed. Retrying in 5 seconds...`, err);
+            if (attempts <= maxRetries) {
+                setTimeout(connectWithRetry, 5000); // Retry after 5 seconds
+            } else {
+                console.error('Could not connect to the database after several attempts.');
+                process.exit(1); // Exit if unable to connect after max retries
+            }
+        } else {
+            console.log('Connected to the MySQL database.');
+            initializeRoutes(db); // Initialize routes only after successful connection
+        }
+    });
+
+    return db;
+};
+
+const db = connectWithRetry();
 
 // API key authentication middleware
 const apiKeyMiddleware = (req, res, next) => {
@@ -84,60 +103,52 @@ const listReleasesRoute = (db) => (req, res) => {
 };
 
 // Route to detect drift in application versions across environments
-const detectDriftRoute = (db) => (req, res) => {
-    const latestVersionsQuery = `
-      SELECT name, MAX(version) AS latest_version 
-      FROM releases 
-      GROUP BY name;
-    `;
+const detectDriftRoute = (db) => async (req, res) => {
+    try {
+        const [latestVersions] = await db.promise().query(`
+            SELECT name, MAX(version) AS latest_version 
+            FROM releases 
+            GROUP BY name;
+        `);
 
-    db.query(latestVersionsQuery, (err, latestVersions) => {
-        if (err) {
-            return res.status(500).json({ error: 'Error fetching latest versions.' });
-        }
+        const driftResults = await Promise.all(latestVersions.map(async (app) => {
+            const [driftRecords] = await db.promise().query(`
+                SELECT * FROM releases 
+                WHERE name = ? AND version != ?
+            `, [app.name, app.latest_version]);
 
-        const driftResults = [];
+            if (driftRecords.length > 0) {
+                return {
+                    [app.name]: {
+                        latest: app.latest_version,
+                        drift: driftRecords.reduce((acc, record) => {
+                            if (!acc[record.account]) {
+                                acc[record.account] = {};
+                            }
+                            acc[record.account][record.region] = record.version;
+                            return acc;
+                        }, {}),
+                    }
+                };
+            }
 
-        latestVersions.forEach((app) => {
-            const { name, latest_version } = app;
+            return null;
+        }));
 
-            const checkDriftQuery = `
-              SELECT * FROM releases 
-              WHERE name = ? AND version != ?
-            `;
-
-            db.query(checkDriftQuery, [name, latest_version], (err, driftRecords) => {
-                if (err) {
-                    return res.status(500).json({ error: 'Error checking for drift.' });
-                }
-
-                if (driftRecords.length > 0) {
-                    driftResults.push({
-                        [name]: {
-                            latest: latest_version,
-                            drift: driftRecords.reduce((acc, record) => {
-                                if (!acc[record.account]) {
-                                    acc[record.account] = {};
-                                }
-                                acc[record.account][record.region] = record.version;
-                                return acc;
-                            }, {}),
-                        },
-                    });
-                }
-
-                if (driftResults.length === latestVersions.length) {
-                    return res.status(200).json(driftResults);
-                }
-            });
-        });
-    });
+        res.status(200).json(driftResults.filter(result => result !== null));
+    } catch (err) {
+        console.error('Error detecting drift:', err);
+        res.status(500).json({ error: 'Error detecting drift.' });
+    }
 };
 
-// Inject dependencies into routes
-app.post('/release', apiKeyMiddleware, createReleaseRoute(db));
-app.get('/releases', apiKeyMiddleware, listReleasesRoute(db));
-app.get('/drift', apiKeyMiddleware, detectDriftRoute(db));
+// Initialize routes only after the database connection is established
+const initializeRoutes = (db) => {
+    // Inject dependencies into routes
+    app.post('/release', apiKeyMiddleware, createReleaseRoute(db));
+    app.get('/releases', apiKeyMiddleware, listReleasesRoute(db));
+    app.get('/drift', apiKeyMiddleware, detectDriftRoute(db));
+};
 
 // Start the server
 app.listen(port, () => {

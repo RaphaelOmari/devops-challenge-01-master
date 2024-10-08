@@ -5,17 +5,14 @@ services:
     image: mysql:8
     container_name: mysql_db
     environment:
-      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password  # Root password from Docker secret
-      MYSQL_DATABASE: releases_db                                  # Default database for app
-      MYSQL_USER: app_user                                          # Limited MySQL user
-      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password              # Limited user password from Docker secret
-    secrets:
-      - mysql_root_password
-      - mysql_password
+      MYSQL_ROOT_PASSWORD: my_root_password        # Root password
+      MYSQL_DATABASE: releases_db                  # Default database for app
+      MYSQL_USER: app_user                         # MySQL limited user
+      MYSQL_PASSWORD: ${DB_PASSWORD}               # MySQL user password from .env
     ports:
-      - "3306:3306"  # Expose MySQL port for local connection
+      - "3306:3306"                                # Expose MySQL port for connections
     volumes:
-      - ./mysql:/docker-entrypoint-initdb.d  # Mounting the sql files to initialize the database
+      - ./mysql:/docker-entrypoint-initdb.d        # Mount SQL files to initialize the database
     networks:
       - app-network
 
@@ -23,26 +20,21 @@ services:
     build: .
     container_name: node_app
     environment:
-      DB_HOST: db                                         # MySQL service hostname (internal network)
-      DB_USER: app_user                                   # MySQL limited user
-      DB_PASSWORD_FILE: /run/secrets/mysql_password        # MySQL password from Docker secret
-      DB_DATABASE: releases_db                            # Target database
-      API_KEY: ${API_KEY}                                 # API Key for authentication (store in .env)
-    secrets:
-      - mysql_password
+      DB_HOST: db                                  # MySQL service hostname
+      DB_USER: ${DB_USER}                          # MySQL limited user
+      DB_PASSWORD: ${DB_PASSWORD}                  # MySQL user password
+      DB_DATABASE: ${DB_DATABASE}                  # Target database
+      DB_PORT: 3306                                # Ensure app connects to the correct MySQL port
+      API_KEY: ${API_KEY}                          # API Key for authentication
     ports:
-      - "3000:3000"  # Expose Node.js app port
+      - "3000:3000"                                # Expose Node.js app port
     depends_on:
-      - db  # Wait for MySQL service to be up
+      - db                                         # Ensure the MySQL container starts first
     networks:
       - app-network
+    # Use wait-for-it.sh to wait for MySQL to be ready before starting the app
+    command: ["./wait-for-it.sh", "db:3306", "--", "npm", "start"]
 
 networks:
-  app-network:
-    driver: bridge  # Create an isolated network for communication between services
-
-secrets:
-  mysql_root_password:
-    file: ./secrets/mysql_root_password.txt  # Root password stored in secret file
-  mysql_password:
-    file: ./secrets/mysql_password.txt       # Limited user password stored in secret file
+  app-network:                                     # Define the app-network
+    driver: bridge

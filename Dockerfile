@@ -1,21 +1,28 @@
 FROM node:14-alpine
 
-# Create and set a directory for the app
+# Install bash or change to sh if necessary
+RUN apk add --no-cache bash
+
+# Set the working directory
 WORKDIR /usr/src/app
 
 # Copy package.json and install dependencies
 COPY package*.json ./
 RUN npm install --only=production
 
+# Copy the wait-for-it.sh script into the container
+COPY wait-for-it.sh /usr/src/app/wait-for-it.sh
+RUN chmod +x /usr/src/app/wait-for-it.sh  # Ensure the script is executable
+
 # Copy the rest of the application code
 COPY . .
 
-# Creates a non-root user to run the application for Security purposes
+# Create a non-root user for security purposes
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
-# Exposes the specified application port
+# Expose the application port
 EXPOSE 3000
 
-# Runs the application
-CMD ["node", "src/main.js"]
+# Run the wait-for-it.sh script before starting the application
+CMD ["./wait-for-it.sh", "db:3306", "--", "npm", "start"]

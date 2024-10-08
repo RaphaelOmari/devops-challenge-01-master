@@ -1,19 +1,3 @@
--- Create the 'top_secret_db' for managing user accounts
-CREATE DATABASE IF NOT EXISTS top_secret_db;
-USE top_secret_db;
-
--- Create 'users' table
-CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- Insert sample users
-INSERT INTO users (username, password) VALUES ('admin', 'admin');
-INSERT INTO users (username, password) VALUES ('bart', 'cowabunga1');
-
 -- Create the 'releases_db' for managing application releases
 CREATE DATABASE IF NOT EXISTS releases_db;
 USE releases_db;
@@ -37,7 +21,8 @@ INSERT INTO releases (name, version, account, region) VALUES
 ('application_eight', '3.6.9', 'staging', 'primary');
 
 -- Create a new user with limited privileges
-CREATE USER 'app_user'@'%' IDENTIFIED BY 'your_app_password';
+DROP USER IF EXISTS 'app_user'@'%';
+CREATE USER 'app_user'@'%' IDENTIFIED BY 'test123';  -- Password set here
 
 -- Grant the user limited privileges (SELECT, INSERT, UPDATE) on the releases_db.releases table
 GRANT SELECT, INSERT, UPDATE ON releases_db.releases TO 'app_user'@'%';
