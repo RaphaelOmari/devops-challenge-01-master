@@ -2,7 +2,8 @@ const express = require('express');
 const mysql = require('mysql2');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
-const { exec } = require('child_process');  // Import exec to run shell commands
+const helmet = require('helmet');  // Import Helmet for security
+const { exec } = require('child_process');  
 const CreateRelease = require('./models/CreateRelease');
 const ListReleases = require('./models/ListReleases');
 
@@ -11,6 +12,9 @@ dotenv.config();
 
 const app = express();
 const port = 3000;
+
+// Use Helmet to secure HTTP headers
+app.use(helmet());
 
 // Middleware to parse JSON bodies
 app.use(bodyParser.json());
@@ -24,15 +28,13 @@ const dbConfig = {
     port: process.env.DB_PORT || 3306,
 };
 
-const maxRetries = 10;  // Max retry attempts
+const maxRetries = 10;  
 let attempts = 0;
-let errorCount = 0;  // To track consecutive errors
+let errorCount = 0;  
 
 // Function to restart the MySQL container
 const restartMySQLContainer = () => {
     console.log('Restarting MySQL container...');
-
-    // Use Docker CLI to stop and start the mysql_db container
     exec('docker restart mysql_db', (err, stdout, stderr) => {
         if (err) {
             console.error('Failed to restart MySQL container:', err);
@@ -45,30 +47,28 @@ const restartMySQLContainer = () => {
 // Function to connect with retry logic
 const connectWithRetry = () => {
     const db = mysql.createConnection(dbConfig);
-
     db.connect((err) => {
         if (err) {
             attempts++;
             errorCount++;
-
             console.error(`Attempt ${attempts} failed. Retrying in 5 seconds...`, err);
 
             if (errorCount === 3) {
                 console.error('Error occurred 3 times, restarting the MySQL container.');
                 restartMySQLContainer();
-                errorCount = 0;  // Reset error count after restarting the container
+                errorCount = 0;
             }
 
             if (attempts <= maxRetries) {
-                setTimeout(connectWithRetry, 5000);  // Retry after 5 seconds
+                setTimeout(connectWithRetry, 5000);  
             } else {
                 console.error('Could not connect to the database after several attempts.');
-                process.exit(1);  // Exit if unable to connect after max retries
+                process.exit(1);  
             }
         } else {
-            errorCount = 0;  // Reset error count on successful connection
+            errorCount = 0;
             console.log('Connected to the MySQL database.');
-            initializeRoutes(db);  // Initialize routes only after successful connection
+            initializeRoutes(db);  
         }
     });
 
@@ -80,7 +80,7 @@ const db = connectWithRetry();
 // API key authentication middleware
 const apiKeyMiddleware = (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
-    const validApiKey = process.env.API_KEY;  // Store API key in .env file
+    const validApiKey = process.env.API_KEY;
 
     if (!apiKey || apiKey !== validApiKey) {
         return res.status(401).json({ error: 'Unauthorized' });
