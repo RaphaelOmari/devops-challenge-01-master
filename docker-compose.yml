@@ -15,6 +15,12 @@ services:
       - ./mysql:/docker-entrypoint-initdb.d        # Mount SQL files to initialize the database
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   app:
     build: .
@@ -29,11 +35,14 @@ services:
     ports:
       - "3000:3000"                                # Expose Node.js app port
     depends_on:
-      - db                                         # Ensure the MySQL container starts first
+      db:
+        condition: service_healthy
+                                      
     networks:
       - app-network
     # Use wait-for-it.sh to wait for MySQL to be ready before starting the app
     command: ["./wait-for-it.sh", "db:3306", "--", "npm", "start"]
+    restart: unless-stopped  
 
 networks:
   app-network:                                     # Define the app-network
