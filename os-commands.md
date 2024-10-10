@@ -68,4 +68,3 @@
    ```bash
     $headers = @{"x-api-key" = "BJDUyhRYRRZthuxfaJa+ShMWdU6MZ4P6Xu40HmK/G1Q="}
     Invoke-RestMethod -Uri "http://localhost:3000/releases" -Method Get -Headers $headers
-    ```
