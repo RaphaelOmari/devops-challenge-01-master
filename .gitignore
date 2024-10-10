@@ -1,0 +1,44 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+**/Dockerfile
+**/docker-compose.yml
+docker-compose.override.yml
+
+# MySQL
+mysql/data/
+mysql/logs/
+mysql/error_logs/
+mysql/backup/
+
+# Secrets (do not commit sensitive data)
+secrets/mysql_password.txt
+secrets/mysql_root_password.txt
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+logs/*.log
+
+# Ignore any build artifacts
+dist/
+build/
+
+# Ignore operating system files
+.DS_Store
+Thumbs.db
+
+# VSCode settings
+.vscode/
+
+# Miscellaneous
+.idea/
+*.swp
+*.swo

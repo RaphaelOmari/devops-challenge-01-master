@@ -2,19 +2,15 @@ const express = require('express');
 const mysql = require('mysql2');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
-const helmet = require('helmet');  // Import Helmet for security
-const { exec } = require('child_process');  
+const { exec } = require('child_process');  // Import exec to run shell commands
 const CreateRelease = require('./models/CreateRelease');
 const ListReleases = require('./models/ListReleases');
 
-// Load environment variables from .env file
+// Loads the environment variables from .env file
 dotenv.config();
 
 const app = express();
 const port = 3000;
-
-// Use Helmet to secure HTTP headers
-app.use(helmet());
 
 // Middleware to parse JSON bodies
 app.use(bodyParser.json());
@@ -28,13 +24,15 @@ const dbConfig = {
     port: process.env.DB_PORT || 3306,
 };
 
-const maxRetries = 10;  
+const maxRetries = 10;  // Sets the maximum retires that can be attempted
 let attempts = 0;
-let errorCount = 0;  
+let errorCount = 0;  // Error Count
 
 // Function to restart the MySQL container
 const restartMySQLContainer = () => {
     console.log('Restarting MySQL container...');
+
+    // Use Docker CLI (or VSCode terminal when you use command 'docker-compose up -d') to stop and start the mysql_db container
     exec('docker restart mysql_db', (err, stdout, stderr) => {
         if (err) {
             console.error('Failed to restart MySQL container:', err);
@@ -47,28 +45,30 @@ const restartMySQLContainer = () => {
 // Function to connect with retry logic
 const connectWithRetry = () => {
     const db = mysql.createConnection(dbConfig);
+
     db.connect((err) => {
         if (err) {
             attempts++;
-            errorCount++;
+            errorCount++; //Increments the error count
+
             console.error(`Attempt ${attempts} failed. Retrying in 5 seconds...`, err);
 
             if (errorCount === 3) {
                 console.error('Error occurred 3 times, restarting the MySQL container.');
                 restartMySQLContainer();
-                errorCount = 0;
+                errorCount = 0;  // Resets error count (errorCount) after restarting the container
             }
 
             if (attempts <= maxRetries) {
-                setTimeout(connectWithRetry, 5000);  
+                setTimeout(connectWithRetry, 5000);  // Retry every 5 seconds if connection not established
             } else {
                 console.error('Could not connect to the database after several attempts.');
-                process.exit(1);  
+                process.exit(1);  // Exit with code 1, if connection not made after max retries (5)
             }
         } else {
-            errorCount = 0;
+            errorCount = 0;  // Resets the error count on successful connection
             console.log('Connected to the MySQL database.');
-            initializeRoutes(db);  
+            initializeRoutes(db);  // Initialize routes only after successful connection
         }
     });
 
@@ -80,7 +80,7 @@ const db = connectWithRetry();
 // API key authentication middleware
 const apiKeyMiddleware = (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
-    const validApiKey = process.env.API_KEY;
+    const validApiKey = process.env.API_KEY;  // Stores the API key inside the .env file
 
     if (!apiKey || apiKey !== validApiKey) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -96,7 +96,7 @@ const createReleaseRoute = (db) => (req, res) => {
     try {
         createRelease = new CreateRelease(req.body);
     } catch (error) {
-        return res.status(400).json({ error: error.message });
+        return res.status(400).json({ error: error.message }); // Catches error and throws the error message associated
     }
 
     const query = 'INSERT INTO releases (name, version, account, region) VALUES (?, ?, ?, ?)';
