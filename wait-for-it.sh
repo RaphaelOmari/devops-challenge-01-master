@@ -85,7 +85,11 @@ if [ "$HOST" = "" ] || [ "$PORT" = "" ]; then
     usage
 fi
 
+# Wait for MySQL and then delay by 40 seconds
 wait_for_wrapper
+
+echo "Waiting for 40 seconds to ensure MySQL is fully initialized..."
+sleep 40  # Introducing a 40-second delay
 
 shift $((OPTIND-1))
 

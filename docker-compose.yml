@@ -5,17 +5,14 @@ services:
     image: mysql:8
     container_name: mysql_db
     environment:
-      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
-      MYSQL_DATABASE: releases_db  
-      MYSQL_USER: app_user 
-      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password  # Use Docker secret for root password
+      MYSQL_DATABASE: releases_db
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password  # Use Docker secret for MySQL user password
     ports:
-      - "3306:3306"  
+      - "3306:3306"
     volumes:
-      - ./mysql:/docker-entrypoint-initdb.d  
-    secrets:
-      - mysql_root_password
-      - mysql_password
+      - ./mysql:/docker-entrypoint-initdb.d
     networks:
       - app-network
     healthcheck:
@@ -23,6 +20,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    secrets:
+      - mysql_root_password  # Reference the Docker secret for root password
+      - mysql_password       # Reference the Docker secret for user password
     restart: unless-stopped
 
   app:
@@ -31,28 +31,28 @@ services:
     environment:
       DB_HOST: db  
       DB_USER: app_user  
-      DB_PASSWORD_FILE: /run/secrets/mysql_password 
+      DB_PASSWORD_FILE: /run/secrets/mysql_password  # Use Docker secret for DB user password
       DB_DATABASE: releases_db  
       DB_PORT: 3306  
-      API_KEY: ${API_KEY}  
+      API_KEY: ${API_KEY}  # API key from .env file
     ports:
-      - "3000:3000"  
+      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
     networks:
       - app-network
     secrets:
-      - mysql_password
+      - mysql_password  # Reference the Docker secret for user password
     command: ["./wait-for-it.sh", "db:3306", "--", "npm", "start"]
     restart: unless-stopped
 
 networks:
-  app-network:  
+  app-network:
     driver: bridge
 
 secrets:
   mysql_root_password:
-    file: ./secrets/mysql_root_password.txt  
+    file: ./secrets/mysql_root_password.txt  # Path to root password secret
   mysql_password:
-    file: ./secrets/mysql_password.txt  
+    file: ./secrets/mysql_password.txt  # Path to user password secret
