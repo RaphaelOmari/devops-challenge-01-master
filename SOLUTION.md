@@ -80,7 +80,7 @@ This will download and install all dependencies listed in the `package.json` fil
 
 -----------------------------------
 
-## Sample CURL Commands for Testing API Endpoints (For further information on the commands used please refer to the txt file named "os-commands.txt")
+## Sample CURL Commands for Testing API Endpoints (For further information on the commands used please refer to the txt file named "os-commands.md")
 
 ### 1. **Create a Release**
    You can create a new release by sending a POST request:
