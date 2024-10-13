@@ -57,7 +57,7 @@
 
 ## `GET /listReleases`
 
-### Unix curl:
+### Windows and Unix curl:
    Retrieve a list of releases with pagination:
    ```bash
     curl -X GET http://localhost:3000/releases -H "x-api-key: <API_KEY>"
