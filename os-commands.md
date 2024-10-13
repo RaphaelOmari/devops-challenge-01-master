@@ -29,7 +29,7 @@
    Retrieve a list of releases with pagination:
    ```bash
    curl -X POST http://localhost:3000/release \
-     -H 'x-api-key: BJDUyhRYRRZthuxfaJa+ShMWdU6MZ4P6Xu40HmK/G1Q=' \
+     -H 'x-api-key: <API_KEY>' \
      -H 'Content-Type: application/json' \
      -d '{"name": "app_one", "version": "1.0.0", "account": "staging", "region": "primary"}'
    ```
